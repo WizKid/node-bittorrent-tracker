@@ -36,17 +36,15 @@ function File() {
     this.peerList = [];
     this.peers = {};
     this.downloads = 0;
-    this.downloading = 0;
-    this.uploading = 0;
+    this.seeders = 0;
+    this.leechers = 0;
 }
 
 File.prototype = {
     addPeer: function(peer) {
         if (typeof(this.peers[peer.id]) != "undefined") {
-            sys.puts("Update a old peer");
             // Update the old peer object
         } else {
-            sys.puts("Add a new peer");
             this.peerList.push(peer);
             this.peers[peer.id] = peer;
         }
@@ -56,7 +54,6 @@ File.prototype = {
         var ret = "";
         for (var i = 0; i < c; i++) {
             var index = Math.floor(Math.random() * this.peerList.length);
-            sys.puts("index: "+ index);
             ret += this.peerList[index].compact_hostport;
         }
         return ret;
@@ -72,11 +69,9 @@ Tracker.prototype = {
         if (typeof this.files[info_hash] == "undefined")
             return this.addFile(info_hash);
 
-        sys.puts("Return old file");
         return this.files[info_hash];
     },
     addFile: function(info_hash) {
-        sys.puts("Create new file");
         var file = new File();
         this.files[info_hash] = file;
         return file;
@@ -131,7 +126,7 @@ var server = http.createServer(function (req, res) {
     file.addPeer(peer);
     var peers = file.getPeers(10);
 
-    var body = "d8:intervali10e5:peers"+ peers.length +":"+ peers +"e";
+    var body = "d8:intervali10e8:completei"+ file.seeders +"e10:incompletei"+ file.leechers +"e10:downloadedi"+ file.downloads +"e5:peers"+ peers.length +":"+ peers +"e";
     res.sendHeader(200, {
         "Content-Length": body.length,
         "Content-Type": "text/plain"
