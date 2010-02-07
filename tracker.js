@@ -188,6 +188,7 @@ var server = http.createServer(function (req, res) {
     file.addPeer(peer);
     var peers = file.getPeers(10);
 
+    // Send response
     var body = "d8:intervali10e8:completei"+ file.seeders +"e10:incompletei"+ file.leechers +"e10:downloadedi"+ file.downloads +"e5:peers"+ peers.length +":"+ peers +"e";
     res.sendHeader(200, {
         "Content-Length": body.length,
