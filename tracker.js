@@ -3,6 +3,13 @@ var url = require("url");
 var sys = require("sys");
 var querystring = require("querystring");
 
+// The requests that utorrent (and probably other) makes can't be urldecoded
+// using decodeURIComponent so we change the unescape and escape function
+// in the querystring lib to use unescape/escape instead
+querystring.unescape = function (s) { return unescape(s) };
+querystring.escape = function (s) { return escape(s) };
+
+
 function Peer(id, host, port, left, event) {
     this.id = id;
     this.compact_hostport = this.compact(host, port);
@@ -153,27 +160,9 @@ function sendError(res, message) {
     res.finish();
 }
 
-// The requests that utorrent (and probably other) makes can't be urldecoded
-// using decodeURIComponent so decode the querystring using unescape and then
-// endocde it using encodeURIComponent. Which makes it possible for the
-// querystring lib to parse it.
-function fixUrlEncoding(url) {
-    var newurl = "";
-    for (var i = 0; i < url.length; i++) {
-        if (url[i] != "%") {
-            newurl += url[i];
-            continue;
-        }
-
-        newurl += encodeURIComponent(unescape(url.substr(i, 3)));
-        i += 2;
-    }
-    return newurl;
-}
-
 var server = http.createServer(function (req, res) {
     var params = url.parse(req.url);
-    var query = querystring.parse(fixUrlEncoding(params["query"]), null, null, true);
+    var query = querystring.parse(params["query"], null, null, true);
 
     if (typeof query["info_hash"] == "undefined" ||
         typeof query["peer_id"] == "undefined" ||
