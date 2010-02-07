@@ -3,9 +3,19 @@ var url = require("url");
 var sys = require("sys");
 var querystring = require("querystring");
 
-function Peer(id, host, port) {
+function Peer(id, host, port, left, event) {
     this.id = id;
     this.compact_hostport = this.compact(host, port);
+    this.done = (event == "completed");
+
+    if (event == "stopped") {
+        this.state = "stopped";
+    } else if (left == 0) {
+        this.state = "seeder";
+    } else {
+        this.state = "leecher";
+    }
+
     this.touch();
 }
 
@@ -42,19 +52,71 @@ function File() {
 
 File.prototype = {
     addPeer: function(peer) {
-        if (typeof(this.peers[peer.id]) != "undefined") {
+        // Compact the peerList array
+        if (this.seeders + this.leechers < this.peerList.length / 2) {
+            peerList = [];
+            var i = 0;
+            for (var p in this.peers) {
+                peerList.append(this.peerList[this.peers[p]]);
+                this.peers[p] = i;
+                i++;
+            }
+            this.peerList = peerList;
+        }
+
+        if (this.peers[peer.id] != undefined) {
             // Update the old peer object
+            var peerIndex = this.peers[peer.id];
+            var oldpeer = this.peerList[peerIndex];
+            if (!oldpeer.done && peer.done) {
+                this.downloads++;
+                oldpeer.done = true;
+            }
+
+            if (peer.state == "stopped") {
+                if (peer.state == "leecher")
+                    this.leechers--;
+                else
+                    this.seeders--;
+
+                delete this.peerList[peerIndex];
+                delete this.peers[peer.id];
+            } else if (oldpeer.state != peer.state) {
+                if (peer.state == "leecher") {
+                    this.seeders--;
+                    this.leechers++;
+                } else {
+                    this.seeders++;
+                    this.leechers--;
+                }
+                oldpeer.state = peer.state;
+            }
         } else {
+            this.peers[peer.id] = this.peerList.length;
             this.peerList.push(peer);
-            this.peers[peer.id] = peer;
+
+            if (peer.state == "leecher")
+                this.leechers++;
+            else
+                this.seeders++;
         }
     },
     getPeers: function(count) {
-        var c = Math.min(this.peerList.length, count);
         var ret = "";
-        for (var i = 0; i < c; i++) {
-            var index = Math.floor(Math.random() * this.peerList.length);
-            ret += this.peerList[index].compact_hostport;
+        if (count < this.peerList.length) {
+            for (var i = this.peerList.length -1; i >= 0; i--) {
+                var p = this.peerList[index];
+                if (p != undefined)
+                    ret += p.compact_hostport;
+            }
+        } else {
+            var c = Math.min(this.peerList.length, count);
+            for (var i = 0; i < c; i++) {
+                var index = Math.floor(Math.random() * this.peerList.length);
+                var p = this.peerList[index];
+                if (p != undefined)
+                    ret += p.compact_hostport;
+            }
         }
         return ret;
     }
@@ -121,7 +183,7 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
-    var peer = new Peer(query["peer_id"], req.connection.remoteAddress, query["port"], query["left"]);
+    var peer = new Peer(query["peer_id"], req.connection.remoteAddress, query["port"], query["left"], query["event"]);
     var file = tracker.getFile(query["info_hash"]);
     file.addPeer(peer);
     var peers = file.getPeers(10);
