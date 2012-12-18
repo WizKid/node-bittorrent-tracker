@@ -1,0 +1,6 @@
+{
+  "name": "node-bittorrent-tracker",
+  "version": "0.0.1",
+  "description": "node-bittorrent-tracker",
+  "main": "lib/tracker/index.js"
+}
